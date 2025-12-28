@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum IDE - Qiskit & PennyLane</title>
+    <meta name="description" content="Web-based quantum computing IDE with visual circuit builder, Bloch sphere visualization, and bidirectional code synchronization">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- CodeMirror -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/material-darker.min.css">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app" class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <span class="logo-icon">⚛️</span>
+                    <span class="logo-text">Quantum IDE</span>
+                </div>
+                <div class="framework-toggle">
+                    <button id="qiskitBtn" class="framework-btn active" data-framework="qiskit">Qiskit</button>
+                    <button id="pennylaneBtn" class="framework-btn" data-framework="pennylane">PennyLane</button>
+                </div>
+            </div>
+            <div class="header-center">
+                <div id="runtimeStatus" class="runtime-status loading">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Loading Runtime...</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button id="runBtn" class="action-btn primary" title="Run Code (Shift+Enter)">
+                    <span class="btn-icon">▶</span>
+                    <span class="btn-text">Run</span>
+                </button>
+                <button id="clearBtn" class="action-btn" title="Clear Circuit">
+                    <span class="btn-icon">🗑️</span>
+                </button>
+                <button id="saveBtn" class="action-btn" title="Save State">
+                    <span class="btn-icon">💾</span>
+                </button>
+                <button id="loadBtn" class="action-btn" title="Load State">
+                    <span class="btn-icon">📂</span>
+                </button>
+                <input type="file" id="loadInput" accept=".json" hidden>
+                <button id="themeToggle" class="action-btn" title="Toggle Theme">
+                    <span class="btn-icon" id="themeIcon">🌙</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel: Code Editor -->
+            <section class="panel code-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">📝</span>
+                        Code Editor
+                    </h2>
+                    <div class="panel-actions">
+                        <span id="syncIndicator" class="sync-indicator" title="Sync Status">🔄</span>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <textarea id="codeEditor"></textarea>
+                </div>
+            </section>
+
+            <!-- Center Panel: Circuit Visualization -->
+            <section class="panel circuit-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <span class="panel-icon">🔬</span>
+                        Quantum Circuit
+                    </h2>
+                    <div class="panel-actions">
+                        <label class="qubit-control">
+                            Qubits:
+                            <input type="number" id="qubitCount" min="1" max="10" value="3">
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Gate Palette -->
+                <div class="gate-palette">
+                    <div class="gate-category">
+                        <span class="category-label">Single Qubit</span>
+                        <div class="gate-buttons">
+                            <button class="gate-btn" data-gate="H" title="Hadamard Gate">H</button>
+                            <button class="gate-btn" data-gate="X" title="Pauli-X (NOT)">X</button>
+                            <button class="gate-btn" data-gate="Y" title="Pauli-Y">Y</button>
+                            <button class="gate-btn" data-gate="Z" title="Pauli-Z">Z</button>
+                            <button class="gate-btn" data-gate="S" title="S Gate (√Z)">S</button>
+                            <button class="gate-btn" data-gate="T" title="T Gate">T</button>
+                        </div>
+                    </div>
+                    <div class="gate-category">
+                        <span class="category-label">Rotation</span>
+                        <div class="gate-buttons">
+                            <button class="gate-btn parametric" data-gate="RX" title="Rotation X">Rx</button>
+                            <button class="gate-btn parametric" data-gate="RY" title="Rotation Y">Ry</button>
+                            <button class="gate-btn parametric" data-gate="RZ" title="Rotation Z">Rz</button>
+                        </div>
+                    </div>
+                    <div class="gate-category">
+                        <span class="category-label">Multi-Qubit</span>
+                        <div class="gate-buttons">
+                            <button class="gate-btn multi" data-gate="CNOT" title="Controlled-NOT">CX</button>
+                            <button class="gate-btn multi" data-gate="CZ" title="Controlled-Z">CZ</button>
+                            <button class="gate-btn multi" data-gate="SWAP" title="SWAP">⟷</button>
+                        </div>
+                    </div>
+                    <div class="gate-category">
+                        <span class="category-label">Measure</span>
+                        <div class="gate-buttons">
+                            <button class="gate-btn measure" data-gate="M" title="Measurement">📊</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Circuit Canvas -->
+                <div class="circuit-container">
+                    <svg id="circuitSvg" class="circuit-svg"></svg>
+                </div>
+            </section>
+
+            <!-- Right Panel: Visualization & Output -->
+            <section class="panel viz-panel">
+                <!-- Qubit Inspector -->
+                <div class="viz-section qubit-inspector">
+                    <div class="section-header">
+                        <h3 class="section-title">
+                            <span class="section-icon">🎯</span>
+                            Qubit Inspector
+                        </h3>
+                        <select id="qubitSelect" class="qubit-select">
+                            <option value="0">Qubit 0</option>
+                            <option value="1">Qubit 1</option>
+                            <option value="2">Qubit 2</option>
+                        </select>
+                    </div>
+                    <div class="bloch-container">
+                        <canvas id="blochCanvas" width="200" height="200"></canvas>
+                    </div>
+                    <div class="qubit-state">
+                        <div class="state-label">|ψ⟩ = <span id="stateFormula">|0⟩</span></div>
+                    </div>
+                </div>
+
+                <!-- State Vector -->
+                <div class="viz-section state-vector">
+                    <div class="section-header">
+                        <h3 class="section-title">
+                            <span class="section-icon">📊</span>
+                            State Vector
+                        </h3>
+                    </div>
+                    <div id="stateVectorDisplay" class="state-vector-list">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+
+                <!-- Probability Distribution -->
+                <div class="viz-section probability-section">
+                    <div class="section-header">
+                        <h3 class="section-title">
+                            <span class="section-icon">📈</span>
+                            Probabilities
+                        </h3>
+                    </div>
+                    <div id="probabilityBars" class="probability-bars">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+
+                <!-- Output Console -->
+                <div class="viz-section output-console">
+                    <div class="section-header">
+                        <h3 class="section-title">
+                            <span class="section-icon">💻</span>
+                            Output
+                        </h3>
+                        <button id="clearOutputBtn" class="clear-btn" title="Clear Output">✕</button>
+                    </div>
+                    <div id="outputArea" class="output-area"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Parameter Modal -->
+        <div id="paramModal" class="modal hidden">
+            <div class="modal-content param-modal">
+                <div class="modal-header">
+                    <h3 id="paramModalTitle">Gate Parameters</h3>
+                    <button id="closeParamModal" class="close-btn">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="param-group">
+                        <label for="paramTheta">Angle (θ)</label>
+                        <div class="param-input-group">
+                            <input type="range" id="paramThetaSlider" min="0" max="6.283" step="0.01" value="0">
+                            <input type="number" id="paramTheta" min="0" max="6.283" step="0.01" value="0">
+                        </div>
+                        <div class="param-presets">
+                            <button class="preset-btn" data-value="0">0</button>
+                            <button class="preset-btn" data-value="1.5708">π/2</button>
+                            <button class="preset-btn" data-value="3.1416">π</button>
+                            <button class="preset-btn" data-value="4.7124">3π/2</button>
+                            <button class="preset-btn" data-value="6.2832">2π</button>
+                        </div>
+                    </div>
+                    <div class="param-group target-qubit-group hidden" id="targetQubitGroup">
+                        <label for="targetQubit">Target Qubit</label>
+                        <select id="targetQubit" class="qubit-select">
+                            <!-- Dynamically populated -->
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="cancelParamBtn" class="modal-btn secondary">Cancel</button>
+                    <button id="applyParamBtn" class="modal-btn primary">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    
+    <script src="gates.js"></script>
+    <script src="simulator.js"></script>
+    <script src="circuit.js"></script>
+    <script src="parser.js"></script>
+    <script src="visualizer.js"></script>
+    <script src="bloch-sphere.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
